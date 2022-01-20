@@ -12,6 +12,7 @@ import gzip
 import pysam
 import os
 
+
 class MergedNuc(Chunk):
     def __init__(self, chrom, start, end, occ, occ_lower, occ_upper, reads, source):
         self.chrom = chrom
@@ -22,26 +23,44 @@ class MergedNuc(Chunk):
         self.occ_upper = occ_upper
         self.reads = reads
         self.source = source
+
     def asBed(self):
-        out = "\t".join(map(str,[self.chrom,self.start,self.end,self.occ,self.occ_lower,self.occ_upper,self.reads, self.source]))
+        out = "\t".join(
+            map(
+                str,
+                [
+                    self.chrom,
+                    self.start,
+                    self.end,
+                    self.occ,
+                    self.occ_lower,
+                    self.occ_upper,
+                    self.reads,
+                    self.source,
+                ],
+            )
+        )
         return out
+
     def write(self, handle):
         """write bed line for peak"""
         handle.write(self.asBed() + "\n")
 
+
 class NucList(ChunkList):
     def __init__(self, *args):
-        list.__init__(self,args)
+        list.__init__(self, args)
+
     @staticmethod
-    def read(bedfile, source, min_occ = 0):
+    def read(bedfile, source, min_occ=0):
         """Make a list of chunks from a tab-delimited bedfile"""
-        if bedfile[-3:] == '.gz':
-            infile = gzip.open(bedfile,"rt")
+        if bedfile[-3:] == ".gz":
+            infile = gzip.open(bedfile, "rt")
         else:
-            infile = open(bedfile,"r")
+            infile = open(bedfile, "r")
         out = NucList()
         for line in infile:
-            in_line = line.rstrip('\n').split("\t")
+            in_line = line.rstrip("\n").split("\t")
             start = int(in_line[1])
             end = int(in_line[2])
             if source == "occ":
@@ -57,17 +76,19 @@ class NucList(ChunkList):
             else:
                 raise Exception("source must be 'occ' or 'nuc'")
             if occ_lower >= min_occ:
-                out.append(MergedNuc(in_line[0],start, end, occ, occ_lower, occ_upper, reads, source))
+                out.append(
+                    MergedNuc(
+                        in_line[0], start, end, occ, occ_lower, occ_upper, reads, source
+                    )
+                )
         infile.close()
         return out
 
 
-
-
-def merge(occ_peaks, nuc_calls, sep = 120):
+def merge(occ_peaks, nuc_calls, sep=120):
     keep = NucList()
-    i = 0 #index for occ peaks
-    j = 0 #index for nuc calls
+    i = 0  # index for occ peaks
+    j = 0  # index for nuc calls
     while i < len(occ_peaks) and j < len(nuc_calls):
         if occ_peaks[i].chrom < nuc_calls[j].chrom:
             keep.append(occ_peaks[i])
@@ -91,19 +112,20 @@ def merge(occ_peaks, nuc_calls, sep = 120):
         i += 1
     return keep
 
+
 def run_merge(args):
     if not args.out:
-        args.out = '.'.join(os.path.basename(args.nucpos).split('.')[0:-3])
+        args.out = ".".join(os.path.basename(args.nucpos).split(".")[0:-3])
     occ = NucList.read(args.occpeaks, "occ", args.min_occ)
     nuc = NucList.read(args.nucpos, "nuc", args.min_occ)
     new = merge(occ, nuc, args.sep)
-    out = open(args.out + '.nucmap_combined.bed','w')
+    out = open(args.out + ".nucmap_combined.bed", "w")
     out.write(new.asBed())
     out.close()
-    pysam.tabix_compress(args.out + '.nucmap_combined.bed', args.out + '.nucmap_combined.bed.gz',force = True)
-    shell_command('rm ' + args.out + '.nucmap_combined.bed')
-    pysam.tabix_index(args.out + '.nucmap_combined.bed.gz', preset = "bed", force = True)
-
-
-
-
+    pysam.tabix_compress(
+        args.out + ".nucmap_combined.bed",
+        args.out + ".nucmap_combined.bed.gz",
+        force=True,
+    )
+    shell_command("rm " + args.out + ".nucmap_combined.bed")
+    pysam.tabix_index(args.out + ".nucmap_combined.bed.gz", preset="bed", force=True)

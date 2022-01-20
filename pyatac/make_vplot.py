@@ -25,14 +25,25 @@ def _vplotHelper(arg):
     for chunk in chunks:
         try:
             chunk.center()
-            submat = FragmentMat2D(chunk.chrom, chunk.start - params.flank-1, chunk.end + params.flank, params.lower, params.upper, params.atac)
+            submat = FragmentMat2D(
+                chunk.chrom,
+                chunk.start - params.flank - 1,
+                chunk.end + params.flank,
+                params.lower,
+                params.upper,
+                params.atac,
+            )
             submat.makeFragmentMat(params.bam)
-            add = submat.get(start = chunk.start- params.flank, end = chunk.end + params.flank, flip = (chunk.strand =="-"))
+            add = submat.get(
+                start=chunk.start - params.flank,
+                end=chunk.end + params.flank,
+                flip=(chunk.strand == "-"),
+            )
             if params.scale:
-                add = add/np.sum(add)
+                add = add / np.sum(add)
             result += add
         except Exception as e:
-            print(('Caught exception when processing:\n'+  chunk.asBed()+"\n"))
+            print(("Caught exception when processing:\n" + chunk.asBed() + "\n"))
             traceback.print_exc()
             print()
             raise e
@@ -41,6 +52,7 @@ def _vplotHelper(arg):
 
 class _VplotParams:
     """Class to store parameters for use in _vplotHelper"""
+
     def __init__(self, flank, lower, upper, bam, atac, scale):
         self.flank = flank
         self.lower = lower
@@ -50,44 +62,36 @@ class _VplotParams:
         self.scale = scale
 
 
-
-
-
 def make_vplot(args):
     """function to make vplot
 
     """
     if not args.out:
-        args.out = '.'.join(os.path.basename(args.bed).split('.')[0:-1])
-    chunks = ChunkList.read(args.bed, strand_col = args.strand)
-    sets = chunks.split(items = min(args.cores*20,len(chunks)))
-    params = _VplotParams(flank = args.flank, lower = args.lower, upper = args.upper, bam = args.bam,
-                            atac = args.atac, scale = args.scale)
-    pool = Pool(processes = args.cores)
-    tmp = pool.map(_vplotHelper, list(zip(sets,itertools.repeat(params))))
+        args.out = ".".join(os.path.basename(args.bed).split(".")[0:-1])
+    chunks = ChunkList.read(args.bed, strand_col=args.strand)
+    sets = chunks.split(items=min(args.cores * 20, len(chunks)))
+    params = _VplotParams(
+        flank=args.flank,
+        lower=args.lower,
+        upper=args.upper,
+        bam=args.bam,
+        atac=args.atac,
+        scale=args.scale,
+    )
+    pool = Pool(processes=args.cores)
+    tmp = pool.map(_vplotHelper, list(zip(sets, itertools.repeat(params))))
     pool.close()
     pool.join()
     result = sum(tmp)
     ##Turn matrix into VMat object
-    vmat=V.VMat(result,args.lower,args.upper)
+    vmat = V.VMat(result, args.lower, args.upper)
     if not args.no_plot:
-        vmat.plot(filename=args.out+".Vplot.pdf")
+        vmat.plot(filename=args.out + ".Vplot.pdf")
     if args.plot_extra:
         ##get insertion profile represented by vplot
         vmat.converto1d()
-        vmat.plot_1d(filename=args.out+'.InsertionProfile.pdf')
-        #get insert size dstribution represented by vplot
-        vmat.plot_insertsize(filename= args.out + ".InsertSizes.pdf")
+        vmat.plot_1d(filename=args.out + ".InsertionProfile.pdf")
+        # get insert size dstribution represented by vplot
+        vmat.plot_insertsize(filename=args.out + ".InsertSizes.pdf")
     ##save
-    vmat.save(args.out+".VMat")
-
-
-
-
-
-
-
-
-
-
-
+    vmat.save(args.out + ".VMat")

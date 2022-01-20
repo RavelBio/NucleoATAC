@@ -8,6 +8,7 @@ import string
 import numpy as np
 import pysam
 
+
 def get_sequence(chunk, fastafile):
     """obtain sequence for an interval
 
@@ -22,7 +23,8 @@ def get_sequence(chunk, fastafile):
     return sequence.upper()
 
 
-DNA_Translation = ''.maketrans('ACGT', 'TGCA')
+DNA_Translation = "".maketrans("ACGT", "TGCA")
+
 
 def complement(sequence):
     """Get complement of DNA sequenceuence"""
@@ -37,25 +39,38 @@ def reverse_complement(sequence):
 def seq_to_mat(sequence, nucleotides):
     """Turn sequenceuence into matrix encoding"""
     l = len(nucleotides[0])
-    if not all(x==l for x in map(len,nucleotides)):
-        raise Exception("Usage Error! Nucleotides must all be of same length! No mixing single nucleotides with dinucleotides, etc")
-    mat = np.zeros((len(nucleotides),len(sequence)-l+1))
+    if not all(x == l for x in map(len, nucleotides)):
+        raise Exception(
+            "Usage Error! Nucleotides must all be of same length! No mixing single nucleotides with dinucleotides, etc"
+        )
+    mat = np.zeros((len(nucleotides), len(sequence) - l + 1))
     for i in range(len(nucleotides)):
-        mat[i] = np.array(list(map(int,[sequence[j:j+l] ==nucleotides[i] for j in range(len(sequence)-l+1)])))
-    return(mat)
+        mat[i] = np.array(
+            list(
+                map(
+                    int,
+                    [
+                        sequence[j : j + l] == nucleotides[i]
+                        for j in range(len(sequence) - l + 1)
+                    ],
+                )
+            )
+        )
+    return mat
+
 
 def getNucFreqs(fasta, nucleotides):
     """Get genomewide nucleotide frequencies"""
     out = np.zeros(len(nucleotides))
     n = 0.0
-    f = open(fasta,'r')
+    f = open(fasta, "r")
     for line in f:
-        if line[0]!='>':
-            sequence = line.rstrip('\n').upper()
+        if line[0] != ">":
+            sequence = line.rstrip("\n").upper()
             out += [sequence.count(i) for i in nucleotides]
             n += len(sequence)
     f.close()
-    return out/n
+    return out / n
 
 
 def getNucFreqsFromChunkList(chunks, fasta, nucleotides):
@@ -69,5 +84,4 @@ def getNucFreqsFromChunkList(chunks, fasta, nucleotides):
         out += [sequence.count(i) for i in nucleotides]
         n += len(sequence)
     handle.close()
-    return out/n
-
+    return out / n

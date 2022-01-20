@@ -16,6 +16,7 @@ from pyatac.bias import PWM
 from pyatac.tracks import InsertionTrack
 from pyatac.utils import read_chrom_sizes_from_fasta
 
+
 def _pwmHelper(arg):
     """"Helper function for multiprocessing acquisition of sequence around insertions"""
     (chunks, params) = arg
@@ -25,14 +26,22 @@ def _pwmHelper(arg):
         for chunk in chunks:
             ins = InsertionTrack(chunk.chrom, chunk.start, chunk.end)
             if params.sym:
-                ins.calculateInsertions( params.bam, lower = params.lower, upper = params.upper, atac = params.atac)
-                mat += ins.getInsertionSequences(params.fasta, params.nucleotides, up = params.up, down = params.down)
+                ins.calculateInsertions(
+                    params.bam, lower=params.lower, upper=params.upper, atac=params.atac
+                )
+                mat += ins.getInsertionSequences(
+                    params.fasta, params.nucleotides, up=params.up, down=params.down
+                )
             else:
-                ins.calculateStrandedInsertions( params.bam, lower = params.lower, upper = params.upper, atac = params.atac)
-                mat += ins.getStrandedInsertionSequences(params.fasta, params.nucleotides, up = params.up, down = params.down)
+                ins.calculateStrandedInsertions(
+                    params.bam, lower=params.lower, upper=params.upper, atac=params.atac
+                )
+                mat += ins.getStrandedInsertionSequences(
+                    params.fasta, params.nucleotides, up=params.up, down=params.down
+                )
             n += sum(ins.vals)
     except Exception as e:
-        print(('Caught exception when processing:\n'+  chunk.asBed()+"\n"))
+        print(("Caught exception when processing:\n" + chunk.asBed() + "\n"))
         traceback.print_exc()
         print()
         raise e
@@ -41,7 +50,8 @@ def _pwmHelper(arg):
 
 class _PWMParameters:
     """Class to store parameters related to getting pwm"""
-    def __init__(self, bam, up, down, fasta, lower = 0, upper = 2000, atac = True, sym = True):
+
+    def __init__(self, bam, up, down, fasta, lower=0, upper=2000, atac=True, sym=True):
         self.bam = bam
         self.up = up
         self.down = down
@@ -49,25 +59,36 @@ class _PWMParameters:
         self.upper = upper
         self.fasta = fasta
         self.atac = atac
-        self.nucleotides = ["A","C","G","T"]
+        self.nucleotides = ["A", "C", "G", "T"]
         self.sym = sym
 
+
 ##### Main function #####
-def get_pwm(args, bases = 50000, splitsize = 1000):
+def get_pwm(args, bases=50000, splitsize=1000):
     """Functiono obtain PWM around ATAC insertion"""
     if not args.out:
-        args.out = '.'.join(os.path.basename(args.bam).split('.')[0:-1])
+        args.out = ".".join(os.path.basename(args.bam).split(".")[0:-1])
     chrs = read_chrom_sizes_from_fasta(args.fasta)
     if args.bed is None:
-        chunks = ChunkList.convertChromSizes(chrs, splitsize = splitsize, offset = args.flank)
-        sets = chunks.split(items = bases//splitsize)
+        chunks = ChunkList.convertChromSizes(
+            chrs, splitsize=splitsize, offset=args.flank
+        )
+        sets = chunks.split(items=bases // splitsize)
     else:
-        chunks = ChunkList.read(args.bed, chromDict = chrs, min_offset = args.flank)
-        sets = chunks.split(bases = bases)
-    params = _PWMParameters(bam = args.bam, up = args.flank, down = args.flank, fasta = args.fasta,
-                            lower = args.lower, upper = args.upper, atac = args.atac, sym = args.sym)
-    pool = Pool(processes = args.cores)
-    tmp = pool.map(_pwmHelper, list(zip(sets,itertools.repeat(params))))
+        chunks = ChunkList.read(args.bed, chromDict=chrs, min_offset=args.flank)
+        sets = chunks.split(bases=bases)
+    params = _PWMParameters(
+        bam=args.bam,
+        up=args.flank,
+        down=args.flank,
+        fasta=args.fasta,
+        lower=args.lower,
+        upper=args.upper,
+        atac=args.atac,
+        sym=args.sym,
+    )
+    pool = Pool(processes=args.cores)
+    tmp = pool.map(_pwmHelper, list(zip(sets, itertools.repeat(params))))
     pool.close()
     pool.join()
     n = 0.0
@@ -80,15 +101,16 @@ def get_pwm(args, bases = 50000, splitsize = 1000):
         normfreqs = seq.getNucFreqsFromChunkList(chunks, args.fasta, params.nucleotides)
     else:
         normfreqs = seq.getNucFreqs(args.fasta, params.nucleotides)
-    result = result / np.reshape(np.repeat(normfreqs,result.shape[1]),result.shape)
+    result = result / np.reshape(np.repeat(normfreqs, result.shape[1]), result.shape)
     if args.sym:
-        #Symmetrize
-        left = result[:,0:(args.flank + 1)]
-        right = result[:,args.flank:]
+        # Symmetrize
+        left = result[:, 0 : (args.flank + 1)]
+        right = result[:, args.flank :]
         rightflipped = np.fliplr(np.flipud(right))
         combined = (left + rightflipped) / 2
-        result = np.hstack((combined, np.fliplr(np.flipud(combined[:,0:args.flank]))))
-    #save
+        result = np.hstack(
+            (combined, np.fliplr(np.flipud(combined[:, 0 : args.flank])))
+        )
+    # save
     pwm = PWM(result, args.flank, args.flank, params.nucleotides)
-    pwm.save(args.out + '.PWM.txt')
-
+    pwm.save(args.out + ".PWM.txt")
